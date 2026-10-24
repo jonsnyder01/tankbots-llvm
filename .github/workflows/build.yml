@@ -36,11 +36,29 @@ jobs:
             host: Linux-aarch64
           - os: macos-15
             host: Darwin-universal
+          # The Visual Studio compiler, and the C runtime linked in (build.sh). x86_64
+          # covers Windows on ARM too, through its emulation.
+          - os: windows-2022
+            host: Windows-x86_64
+
+    # Git Bash on Windows, so build.sh is one script on every host.
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v4
 
+      # cl, link and Visual Studio's own CMake and Ninja on PATH, as a Developer Command
+      # Prompt has them.
+      - name: msvc
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: ninja
+        if: runner.os != 'Windows'
         run: |
           if [ "$(uname -s)" = Darwin ]; then
             brew install ninja
@@ -85,6 +103,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat dist/*.sha256 >dist/SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" dist/*.tar.xz dist/SHA256SUMS \
+          gh release create "$GITHUB_REF_NAME" dist/*.tar.xz dist/*.zip dist/SHA256SUMS \
             --title "LLVM $GITHUB_REF_NAME" \
             --notes "LLVM $(jq -r .llvm pin.json), RISC-V only: clang, lld, llvm-objcopy, llvm-nm and clang's headers. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
