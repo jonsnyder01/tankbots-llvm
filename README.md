@@ -25,10 +25,11 @@ build. These are a fraction of the size and run on every Mac.
 
 1. Change `pin.json` to the new version's source tarball and its sha256 (the release
    page lists a digest for each asset).
-2. Open a pull request; CI builds and tests all four. A universal macOS build takes a
-   few hours.
-3. Merge, then tag `main` with `<version>-1` and push the tag. CI builds again and
-   publishes the archives and `SHA256SUMS` as a release under that tag.
+2. Open a pull request and merge it. Neither builds anything: CI runs only on a tag.
+3. Tag `main` with `<version>-1` and push the tag. CI builds and tests all four and
+   publishes the archives and `SHA256SUMS` as a release under that tag. A universal
+   macOS build takes a few hours; if one fails, nothing is released, so fix it, delete
+   the tag and push it again.
 
 A rebuild of the same LLVM, because something here changed, is the next revision:
 `23.1.4-2`.

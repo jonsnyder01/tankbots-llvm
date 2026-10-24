@@ -1,6 +1,6 @@
-# Builds the pinned LLVM on each host and tests it. A tag publishes what was built as a
-# release; nothing else does, so a pull request or a push to main is only the question
-# "does this still build".
+# Builds the pinned LLVM on each host, tests it, and publishes what was built as a
+# release. Only a tag runs it: a universal macOS build takes hours, so a pull request or
+# a merge to main builds nothing, and a tag is where a change here is first built.
 #
 # A tag is `<llvm version>-<revision>`: 23.1.4-1 is the first build of 23.1.4, and
 # 23.1.4-2 is the same LLVM built again with something here changed.
@@ -9,10 +9,7 @@ name: build
 
 on:
   push:
-    branches: [main]
     tags: ["*"]
-  pull_request:
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -77,7 +74,6 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     permissions:
