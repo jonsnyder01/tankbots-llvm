@@ -55,10 +55,15 @@ tarball="$work/$(basename "$source")"
 echo "$sum  $tarball" | $sha256 -c -
 rm -rf "$work/src"
 mkdir "$work/src"
-# Less the two folders that hold symlinks, which Git Bash's tar cannot make on Windows and
-# fails over: clang's test inputs and mlgo-utils, neither of which this build reads.
+# Less the symlinks, which Git Bash's tar cannot make on Windows and fails over: clang's
+# test inputs, and three scripts in mlgo-utils that link to their copies further down.
+# Nothing this build runs reads either.
+links=llvm/utils/mlgo-utils
 tar -xJf "$tarball" -C "$work/src" --strip-components=1 \
-  --exclude='*/clang/test' --exclude='*/llvm/utils/mlgo-utils'
+  --exclude='*/clang/test' \
+  --exclude="*/$links/combine_training_corpus.py" \
+  --exclude="*/$links/extract_ir.py" \
+  --exclude="*/$links/make_corpus.py"
 
 # One target, two projects, and nothing the binaries would have to find at run time:
 # no zlib, zstd, libxml2 or libedit, so the archive is the whole of what they load.
