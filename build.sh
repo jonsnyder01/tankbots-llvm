@@ -6,7 +6,11 @@
 #
 # Leaves dist/tankbots-llvm-<version>-<host>.tar.xz and its .sha256 beside this script.
 # <host> is `uname -s`-`uname -m`, except on macOS, where the build is universal (arm64
-# and x86_64 in one binary) and the host is Darwin-universal.
+# and x86_64 in one binary) and the host is Darwin-universal, and on Windows, where it is
+# Windows-x86_64 and the archive is a .zip, because that is what Explorer opens.
+#
+# On Windows it runs under Git Bash, with the Visual Studio compiler already on PATH (a
+# Developer Command Prompt's environment, which vcvars64.bat sets).
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -29,6 +33,13 @@ Linux)
   # libstdc++ inside the binaries, so they run on any glibc at least as new as the
   # runner's, with no C++ runtime of the same age to go looking for.
   platform="-DLLVM_STATIC_LINK_CXX_STDLIB=ON"
+  sha256="sha256sum"
+  ;;
+MINGW* | MSYS*)
+  host=Windows-x86_64
+  # The C runtime inside the binaries, so a player needs no Visual C++ redistributable.
+  # cl by name, because Git Bash puts a gcc of its own on PATH ahead of it.
+  platform="-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"
   sha256="sha256sum"
   ;;
 *)
@@ -79,6 +90,16 @@ echo "$version" >"$work/stage/$name/version"
 "$here/test/run.sh" "$work/stage/$name"
 
 mkdir -p "$here/dist"
-tar -cJf "$here/dist/$name.tar.xz" -C "$work/stage" "$name"
-(cd "$here/dist" && $sha256 "$name.tar.xz" >"$name.tar.xz.sha256")
-cat "$here/dist/$name.tar.xz.sha256"
+case "$host" in
+Windows-*)
+  archive="$name.zip"
+  rm -f "$here/dist/$archive"
+  (cd "$work/stage" && 7z a -tzip -bd "$here/dist/$archive" "$name" >/dev/null)
+  ;;
+*)
+  archive="$name.tar.xz"
+  tar -cJf "$here/dist/$archive" -C "$work/stage" "$name"
+  ;;
+esac
+(cd "$here/dist" && $sha256 "$archive" >"$archive.sha256")
+cat "$here/dist/$archive.sha256"
