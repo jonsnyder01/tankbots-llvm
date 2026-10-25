@@ -28,14 +28,17 @@ build. These are a fraction of the size and run on every Mac.
 
 1. Change `pin.json` to the new version's source tarball and its sha256 (the release
    page lists a digest for each asset).
-2. Open a pull request and merge it. Neither builds anything: CI runs only on a tag.
-3. Tag `main` with `<version>-1` and push the tag. CI builds and tests all four and
-   publishes the archives and `SHA256SUMS` as a release under that tag. A universal
-   macOS build takes a few hours; if one fails, nothing is released, so fix it, delete
-   the tag and push it again.
+2. Open a pull request and merge it. Neither builds anything.
+3. Run the `build` workflow on `main`, from the Actions tab or with
+   `gh workflow run build.yml --ref main`. It names the next revision of the pinned LLVM
+   itself -- `<version>-1` for a new one -- builds and tests all four, and once all four
+   pass, tags `main` with it and publishes the archives and `SHA256SUMS` as a release
+   under that tag. A universal macOS build takes a few hours; if one fails, nothing is
+   tagged or released, so fix it and run it again.
 
 A rebuild of the same LLVM, because something here changed, is the next revision:
-`23.1.4-2`.
+`23.1.4-2`. Pushing a tag yourself still works and releases that tag, which must be
+`<version>-<revision>`.
 
 ## Building locally
 

@@ -1,6 +1,11 @@
 # Builds the pinned LLVM on each host, tests it, and publishes what was built as a
-# release. Only a tag runs it: a universal macOS build takes hours, so a pull request or
-# a merge to main builds nothing, and a tag is where a change here is first built.
+# release. A universal macOS build takes hours, so a pull request or a merge to main
+# builds nothing. Two things start a release:
+#
+#   run by hand    from main, in the Actions tab or `gh workflow run build.yml`. Names the
+#                  next revision itself, and tags main with it once all four have built,
+#                  so a failed build leaves no tag behind
+#   a pushed tag   builds and releases that tag, which must name the pin
 #
 # A tag is `<llvm version>-<revision>`: 23.1.4-1 is the first build of 23.1.4, and
 # 23.1.4-2 is the same LLVM built again with something here changed.
@@ -10,13 +15,51 @@ name: build
 on:
   push:
     tags: ["*"]
+  workflow_dispatch:
 
+# A tag pushed again replaces the build of it that is running. A run by hand never
+# cancels one: it waits, so two at once cannot both name the same revision.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
+  # The tag the release goes under, settled before hours of building rather than after.
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: the tag
+        id: tag
+        run: |
+          llvm=$(jq -r .llvm pin.json)
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            # Main only, because the commit run is the commit tagged, and a release of a
+            # branch nobody merged is a release of code main does not have.
+            if [ "$GITHUB_REF" != refs/heads/main ]; then
+              echo "run it from main, not $GITHUB_REF" >&2
+              exit 1
+            fi
+            # The highest revision of this LLVM, plus one. A tag that is not
+            # <llvm>-<number>, like a hand-made stopgap, is not a revision.
+            last=$(git ls-remote --tags origin "refs/tags/$llvm-*" |
+              sed -n "s|.*refs/tags/$llvm-\([0-9][0-9]*\)$|\1|p" | sort -n | tail -1)
+            tag="$llvm-$(( ${last:-0} + 1 ))"
+          else
+            tag=$GITHUB_REF_NAME
+            case "$tag" in
+            "$llvm"-[0-9]*) ;;
+            *) echo "tag $tag is not $llvm-<revision>" >&2; exit 1 ;;
+            esac
+          fi
+          echo "releasing $tag"
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+
   build:
+    needs: tag
     name: ${{ matrix.host }}
     runs-on: ${{ matrix.os }}
     # A universal macOS build is two LLVMs on three cores.
@@ -74,31 +117,28 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: build
+    needs: [tag, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: the tag names the pin
-        run: |
-          llvm=$(jq -r .llvm pin.json)
-          case "$GITHUB_REF_NAME" in
-          "$llvm"-[0-9]*) ;;
-          *) echo "tag $GITHUB_REF_NAME is not $llvm-<revision>" >&2; exit 1 ;;
-          esac
-
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
+      # --target makes the tag on the commit that was built when the tag does not exist
+      # yet, which is a run by hand, and is ignored when it does, which is a pushed one.
+      # A tag made with this workflow's token starts no workflow, so it is not built twice.
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.tag.outputs.tag }}
         run: |
           cat dist/*.sha256 >dist/SHA256SUMS
-          gh release create "$GITHUB_REF_NAME" dist/*.tar.xz dist/*.zip dist/SHA256SUMS \
-            --title "LLVM $GITHUB_REF_NAME" \
+          gh release create "$TAG" dist/*.tar.xz dist/*.zip dist/SHA256SUMS \
+            --target "$GITHUB_SHA" \
+            --title "LLVM $TAG" \
             --notes "LLVM $(jq -r .llvm pin.json), RISC-V only: clang, lld, llvm-objcopy, llvm-nm and clang's headers. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
