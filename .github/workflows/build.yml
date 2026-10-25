@@ -26,11 +26,13 @@ concurrency:
 jobs:
   # The tag the release goes under, settled before hours of building rather than after.
   tag:
-    runs-on: ubuntu-latest
+    # Named rather than latest, here and in release, so the label moving to a new Ubuntu
+    # does not move these jobs with it unannounced.
+    runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: the tag
         id: tag
@@ -87,7 +89,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # cl, link and Visual Studio's own CMake and Ninja on PATH, as a Developer Command
       # Prompt has them.
@@ -110,7 +112,7 @@ jobs:
       - name: build
         run: ./build.sh "$RUNNER_TEMP/llvm"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.host }}
           path: dist/*
@@ -118,13 +120,13 @@ jobs:
 
   release:
     needs: [tag, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
