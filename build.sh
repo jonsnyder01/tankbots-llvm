@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the pinned LLVM for this host, RISC-V only, and packages what a guest build
-# needs: clang, lld, llvm-objcopy, llvm-nm and clang's own headers.
+# needs: clang, ld.lld, llvm-objcopy, llvm-nm and clang's own headers.
 #
 #   ./build.sh <work directory>
 #
@@ -48,6 +48,8 @@ MINGW* | MSYS*)
   ;;
 esac
 name="tankbots-llvm-$version-$host"
+exe=""
+[ "$host" = Windows-x86_64 ] && exe=.exe
 
 # The source, checked against the pin before a byte of it is unpacked.
 tarball="$work/$(basename "$source")"
@@ -92,6 +94,21 @@ cmake -G Ninja -S "$work/src/llvm" -B "$work/build" \
 
 rm -rf "$work/stage"
 ninja -C "$work/build" install-distribution-stripped
+
+# bin/ is cut down to the four tools tankbots runs, each a real file under the one name it
+# is run by. The install adds a name apiece for every other front end and linker flavor --
+# clang++, clang-cl, lld-link, wasm-ld -- as symlinks, or on Windows as full copies, which
+# made that archive four times the size of the others. A name nobody should run is a name
+# somebody can run by mistake. ld.lld rather than lld, because that is what the driver asks
+# for under -fuse-ld=lld, and lld reads its flavor off the name it was run by.
+bin="$work/stage/$name/bin"
+kept="$work/kept"
+rm -rf "$kept"
+mkdir "$kept"
+cp -L "$bin/clang$exe" "$bin/ld.lld$exe" "$bin/llvm-objcopy$exe" "$bin/llvm-nm$exe" \
+  "$kept/"
+rm -rf "$bin"
+mv "$kept" "$bin"
 cp "$work/src/llvm/LICENSE.TXT" "$work/stage/$name/"
 echo "$version" >"$work/stage/$name/version"
 

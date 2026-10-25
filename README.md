@@ -11,9 +11,12 @@ official source by this repository's CI, for:
 | `tankbots-llvm-<version>-Linux-aarch64.tar.xz` | Linux arm64, glibc 2.35 and later |
 | `tankbots-llvm-<version>-Windows-x86_64.zip` | Windows 10 and later, x86_64 and ARM (emulated) |
 
-Each holds `bin/clang` (`clang.exe` on Windows, and so on), `bin/lld` (and `ld.lld`), `bin/llvm-objcopy`, `bin/llvm-nm`,
-`lib/clang/<major>/include`, LLVM's `LICENSE.TXT`, and a `version` file. `clang` targets
-`riscv32-unknown-elf` by default and can target nothing else. The binaries load nothing
+Each holds `bin/clang`, `bin/ld.lld`, `bin/llvm-objcopy` and `bin/llvm-nm` (with `.exe`
+on Windows), `lib/clang/<major>/include`, LLVM's `LICENSE.TXT`, and a `version` file.
+`bin/` holds those four and nothing else, each a real file: no `clang++`, `clang-cl`,
+`lld-link` or `wasm-ld`, which LLVM installs as extra names for the same two binaries
+(on Windows, as full copies of them). `clang` targets `riscv32-unknown-elf` by default
+and can target nothing else. The binaries load nothing
 from the system beyond its C library.
 
 ## Why not the official release

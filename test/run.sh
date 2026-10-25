@@ -10,6 +10,25 @@ here=$(cd "$(dirname "$0")" && pwd)
 llvm=${1:?usage: test/run.sh <unpacked toolchain>}
 out=$(mktemp -d)
 
+# The four tools and nothing else, each a real file: another name is a front end or a
+# linker flavor nobody here means to run.
+exe=""
+[ -f "$llvm/bin/clang.exe" ] && exe=.exe
+for tool in clang ld.lld llvm-objcopy llvm-nm; do
+  [ -f "$llvm/bin/$tool$exe" ] && [ ! -L "$llvm/bin/$tool$exe" ] || {
+    echo "bin/$tool$exe is missing, or not a file of its own" >&2
+    exit 1
+  }
+done
+count=0
+for binary in "$llvm"/bin/*; do
+  count=$((count + 1))
+done
+[ "$count" = 4 ] || {
+  echo "bin/ holds more than the four:" "$llvm"/bin/* >&2
+  exit 1
+}
+
 flags="--target=riscv32-unknown-elf -march=rv32im_zicsr -mabi=ilp32 -ffreestanding
   -nostdlib -fno-builtin -Os -Wall -Wextra -Werror"
 
@@ -36,7 +55,7 @@ esac
 }
 
 if [ "$(uname -s)" = Darwin ]; then
-  for binary in clang lld llvm-objcopy llvm-nm; do
+  for binary in clang ld.lld llvm-objcopy llvm-nm; do
     archs=$(lipo -archs "$llvm/bin/$binary")
     [ "$archs" = "x86_64 arm64" ] || [ "$archs" = "arm64 x86_64" ] || {
       echo "$binary is $archs, not universal" >&2
